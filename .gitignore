@@ -1,6 +1,7 @@
 makefile
 build/
-bin/*
+bin/*.dat
+obj/*.o
 run/*
 !bin
 !run
