@@ -1,3 +1,4 @@
 makefile
 build/
 bin/*
+run/*
