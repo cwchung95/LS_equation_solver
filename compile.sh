@@ -1,6 +1,6 @@
 #! /bin/bash
 
-exit_code = 0;
+exit_code=0
 
 if [ $# -ne 0 ] && [ "$1" == "clean" ]; then
     echo "Cleaning up..."
@@ -11,7 +11,7 @@ if [ $# -ne 0 ] && [ "$1" == "clean" ]; then
     cd build
     cmake ..
     make -j $(getconf _NPROCESSORS_ONLN) 
-    exit_code = $?
+    exit_code=$?
 
     if [[ $exit_code != 0 ]] ; then
         echo "\n\e[01;31m===== ERRORS and WARNINGS =====\e[0m\n"

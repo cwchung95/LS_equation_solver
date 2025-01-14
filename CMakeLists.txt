@@ -1,5 +1,5 @@
 # Minimum required version of CMake
-cmake_minimum_required(VERSION 3.0)
+cmake_minimum_required(VERSION 3.10...3.24)
 
 # Project name
 project(LS_Equation_Solver)
@@ -24,6 +24,9 @@ execute_process(COMMAND gsl-config --libs OUTPUT_VARIABLE GSL_LIBS OUTPUT_STRIP_
 # Add GSL flags to the project
 add_compile_options(${GSL_CFLAGS})
 link_libraries(${GSL_LIBS})
+
+# Add warnings and errors
+add_compile_options(-Wall -Wextra -Wpedantic )
 
 # Find all .cpp files in the src directory
 file(GLOB SOURCES ${SRC_DIR}/*.cpp)
