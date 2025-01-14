@@ -26,7 +26,7 @@ add_compile_options(${GSL_CFLAGS})
 link_libraries(${GSL_LIBS})
 
 # Add warnings and errors
-add_compile_options(-Wall -Wextra -Wpedantic )
+# add_compile_options(-Wall -Wextra -Wpedantic )
 
 # Find all .cpp files in the src directory
 file(GLOB SOURCES ${SRC_DIR}/*.cpp)
