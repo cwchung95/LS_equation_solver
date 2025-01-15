@@ -24,6 +24,26 @@ if [ $# -ne 0 ] && [ "$1" == "clean" ]; then
     rm -rf run/* bin/* obj/*.o obj/*.d
     exit 0
   else
+    term_width=$(tput cols)
+    message=" Compiling Started "
+    msg_length=${#message}
+
+    padding=$(( (term_width - msg_length) / 2))
+    if (( (term_width - msg_length) % 2 != 0 )); then
+      padding_right=$((padding + 1))
+    else
+      padding_right=$padding
+    fi
+    left_padding=$(printf "%*s" "$padding" "" | tr " " "=")
+    right_padding=$(printf "%*s" "$padding_right" "" | tr " " "=")
+
+    printf "\n\e[01;34m${left_padding}${message}${right_padding}\e[0m\n"
+
+    figlet -c -w $(tput cols) -f smslant Lipmann-Schwinger Solver
+
+    printf "\e[01;34m%*s\e[0m\n" "$term_width" "" | tr " " "="
+    printf "\n "
+
     mkdir build
     cd build
     cmake ..
@@ -31,7 +51,6 @@ if [ $# -ne 0 ] && [ "$1" == "clean" ]; then
     
     exit_code=$?
 
-    term_width=$(tput cols)
 
     if [[ $exit_code != 0 ]] ; then
       message=" Compile failed with errors! "

@@ -2,10 +2,11 @@
 #define V_EFT_LO_H
 
 #include "potential.h"
+#include "system.h"
 
 class V_EFT_LO : public LocalPotential {
   public:
-    V_EFT_LO(const System& sys, double a, double mu, double lamd) : LocalPotential(sys, "V_EFT_LO"), a(a), mu(mu), lamd(lamd) {} 
+    V_EFT_LO(const System& sys, double a, double mu, double lamd) : LocalPotential(sys, "V_EFT_LO"), a(1e-3*sys.fm_to_MeV_inv(a)), mu(mu), lamd(lamd) {} 
 
     double operator()( double r ) const override {
       return 32 * std::pow(M_PI, 2) * a / ( 1 - 2 * a * mu / M_PI ) * gaussian(r);

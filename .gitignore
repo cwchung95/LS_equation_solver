@@ -1,4 +1,5 @@
 makefile
+tmp_data.dat
 build/
 bin/*.dat
 obj/*.o
