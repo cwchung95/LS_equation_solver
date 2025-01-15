@@ -39,7 +39,7 @@ class Plot {
         throw std::runtime_error("X and Y data sizes are not matching");
       }
 
-      std::string tempFileName = "temp_data.dat";
+      std::string tempFileName = "bin/temp_data.dat";
       std::ofstream dataFile(tempFileName);
       for ( size_t i = 0; i < x.size(); ++i ) {
         dataFile << x[i] << " " << y[i] << "\n";
