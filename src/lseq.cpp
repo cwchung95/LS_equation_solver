@@ -184,8 +184,8 @@ int main(int argc, char* argv[]) {
 
   //Calculate the Phase Shift
   double delta = phase_shift_from_T(sys, k, T);
-  std::map <std::string, std::string> phase_shift = {{"Phase shift (in degrees)", std::to_string(delta)}};
-  print_text_box(format_config(phase_shift, "PHASE SHIFT", datacard_file));
+  std::map <std::string, std::string> phase_shift = {{"Phase shift", std::to_string(delta)}};
+  print_text_box(format_config(phase_shift, "RESULT", datacard_file));
 
   delete mesh;
 }
