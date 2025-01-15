@@ -20,10 +20,10 @@ class Operators {
 
 class G0 : public Operators {
   public:
-    G0(const System& sys) : Operators(sys), sys(sys) {}
+    G0(const System& sys) : Operators(sys), sys(sys), mass(sys.getMass()) {}
 
     double operator()(double E, double q) const {
-      return sys.getMass() / (mass * E - q * q);
+      return mass / (mass * E - q * q);
     }
     
     double residue(double q0) const {

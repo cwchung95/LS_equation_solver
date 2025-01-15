@@ -3,7 +3,24 @@
 exit_code=0
 
 if [ $# -ne 0 ] && [ "$1" == "clean" ]; then
-    echo "Cleaning up..."
+    message=" Cleaning up the project! " 
+    color_code="01;34m"
+    msg_length=${#message}
+
+    term_width=$(tput cols)
+
+    padding=$(( (term_width - msg_length) / 2))
+
+    if (( (term_width - msg_length) % 2 != 0 )); then
+      padding_right=$((padding + 1))
+    else
+      padding_right=$padding
+    fi
+
+    left_padding=$(printf "%*s" "$padding" "" | tr " " "=")
+    right_padding=$(printf "%*s" "$padding_right" "" | tr " " "=")
+
+    printf "\n\e[${color_code}${left_padding}${message}${right_padding}\e[0m\n"
     rm -rf run/* bin/* obj/*.o obj/*.d
     exit 0
   else
@@ -11,14 +28,34 @@ if [ $# -ne 0 ] && [ "$1" == "clean" ]; then
     cd build
     cmake ..
     make -j $(getconf _NPROCESSORS_ONLN) 
+    
     exit_code=$?
 
+    term_width=$(tput cols)
+
     if [[ $exit_code != 0 ]] ; then
-        echo "\n\e[01;31m===== ERRORS and WARNINGS =====\e[0m\n"
-        exit $exit_code
+      message=" Compile failed with errors! "
+      color_code="01;31m"
     else 
-      printf "\n\e[01;32m Compiled successfully without errors or warnings! \e[0m\n\n"
+      message=" Compiled successfully without errors! " 
+      color_code="01;32m"
     fi
+    
+    msg_length=${#message}
+
+    padding=$(( (term_width - msg_length) / 2))
+
+    if (( (term_width - msg_length) % 2 != 0 )); then
+      padding_right=$((padding + 1))
+    else
+      padding_right=$padding
+    fi
+
+    left_padding=$(printf "%*s" "$padding" "" | tr " " "=")
+    right_padding=$(printf "%*s" "$padding_right" "" | tr " " "=")
+
+    printf "\n\e[${color_code}${left_padding}${message}${right_padding}\e[0m\n"
+
 
     cd ..
 

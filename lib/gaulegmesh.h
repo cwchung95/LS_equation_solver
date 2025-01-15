@@ -14,7 +14,7 @@ class GaulegMesh : public Mesh {
     }
 
   private:
-    void legendre_gauss(int n, double p_min, double p_max, std::vector<double>& points, std::vector<double>& weights) { 
+    void legendre_gauss(int n, double p_min, double p_max, std::vector<double>& points, std::vector< std::complex<double> >& weights) { 
       gsl_integration_glfixed_table* table = gsl_integration_glfixed_table_alloc(n);
 
       for (int i = 0; i < n; ++i) {
@@ -23,7 +23,8 @@ class GaulegMesh : public Mesh {
         gsl_integration_glfixed_point(p_min, p_max, i, &xi, &wi, table);
 
         points[i] = xi;
-        weights[i] = wi;
+        weights[i] = std::complex<double> (wi,0.0);
+        std::cout << "xi = " << xi << " wi = " << wi << std::endl;
       }
 
       gsl_integration_glfixed_table_free(table);

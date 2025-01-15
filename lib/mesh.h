@@ -10,8 +10,8 @@ class Mesh {
   protected:
     int n;
     double p_min, p_max;
-    std::vector<double> points, weights, pv_points;
-    std::vector< std::complex<double> > pv_weights;
+    std::vector<double> points, pv_points;
+    std::vector< std::complex<double> > weights, pv_weights;
 
   public:
     Mesh(const int n, const double p_min, const double p_max) : n(n), p_min(p_min), p_max(p_max) {}
@@ -34,6 +34,10 @@ class Mesh {
     std::complex<double> w(int i) const { return ws()[i]; }
 
     size_t size() const { return n + pv_points.size(); }
+
+    bool is_pv(size_t i) const {
+      return i >= n;
+    }
 
     int n_pv(int i=0) const { return n + i; }
 
