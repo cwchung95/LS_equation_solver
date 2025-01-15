@@ -24,7 +24,6 @@ class GaulegMesh : public Mesh {
 
         points[i] = xi;
         weights[i] = std::complex<double> (wi,0.0);
-        std::cout << "xi = " << xi << " wi = " << wi << std::endl;
       }
 
       gsl_integration_glfixed_table_free(table);
