@@ -32,6 +32,12 @@ class System {
     double getScale() const {
       return scale;
     }
+    double fm_to_MeV_inv(double fm) const {
+      return fm * scale / 197.3269788;
+    }
+    double Mev_to_fm_inv(double MeV) const {
+      return MeV * 197.3269788 / scale;
+    }
 
     std::string repr() const;
 

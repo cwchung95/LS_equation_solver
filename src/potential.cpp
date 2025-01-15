@@ -6,7 +6,7 @@
 #include <functional>
 
 double integrate(std::function<double(double)> func, double a, double b) {
-  int n = 1e6;
+  int n = 1e8;
   double step = (b - a) / n;
   double result = 0.0;
   double x1 = a;
