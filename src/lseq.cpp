@@ -23,7 +23,7 @@
 int get_shell_width();
 void print_text_box(const std::vector<std::string>& lines);
 
-std::vector<std::string> format_config(const std::map<std::string, std::string>& config, const std::string& title, const std::string& filename);
+std::vector<std::string> format_config(const std::map<std::string, std::string>& config, const std::vector<std::string>& config_order, const std::string& title, const std::string& filename);
 std::string trim(const std::string& str);
 std::map<std::string, std::string> parse_datacard(const std::string& filename);
 
@@ -39,6 +39,8 @@ double phase_shift_from_T(const System& sys, double k, std::complex<double> T);
 int main(int argc, char* argv[]) {
   // Default configurations
   std::map<std::string, std::string> config = {
+    {"mass", "1.0"},
+    {"scale", "1.0"},
     {"mesh_scheme", "gauleg"},
     {"mesh_points", "16"},
     {"mesh_min", "0.0"},
@@ -46,6 +48,9 @@ int main(int argc, char* argv[]) {
     {"potential", "V_Gauss"},
     {"potential_params", "-4.0, 2.0"},
     {"k", "1.0"}
+  };
+  std::vector<std::string> config_order = {
+    "mass", "scale", "mesh_scheme", "mesh_points", "mesh_min", "mesh_max", "potential", "potential_params", "k"
   };
   bool flag_debug = false;
   std::string datacard_file = "Default Setting - No datacard file provided";
@@ -83,6 +88,10 @@ int main(int argc, char* argv[]) {
     }
   }
 
+  // Extract system parameters
+  double scale = std::stod(config["scale"]);
+  double mass = std::stod(config["mass"]);
+
   //Extract mesh parameters
   std::string mesh_scheme = config["mesh_scheme"];
   size_t mesh_points = std::stoi(config["mesh_points"]);
@@ -103,8 +112,9 @@ int main(int argc, char* argv[]) {
 
   // Initialize the system
   System sys;
-  std::cout << sys << std::endl;
-
+  sys.setScale(scale);
+  sys.setMass(mass);
+  // std::cout << sys << std::endl;
 
   // Create the mesh
   Mesh* mesh = nullptr;
@@ -155,7 +165,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Display configuration
-  print_text_box(format_config(config, "CONFIGURATION", datacard_file)); 
+  print_text_box(format_config(config, config_order, "CONFIGURATION", datacard_file)); 
 
   // Define the Green's function
   G0 G0(sys);
@@ -184,8 +194,9 @@ int main(int argc, char* argv[]) {
 
   //Calculate the Phase Shift
   double delta = phase_shift_from_T(sys, k, T);
-  std::map <std::string, std::string> phase_shift = {{"Phase shift", std::to_string(delta)}};
-  print_text_box(format_config(phase_shift, "RESULT", datacard_file));
+  std::map <std::string, std::string> result = {{"Phase shift", std::to_string(delta)}};
+  std::vector <std::string> result_order = {"Phase shift"};
+  print_text_box(format_config(result, result_order, " RESULT ", datacard_file));
 
   delete mesh;
 }
@@ -250,7 +261,7 @@ void print_text_box(const std::vector<std::string>& lines) {
 }
 
 // Function to format the configuration
-std::vector<std::string> format_config(const std::map<std::string, std::string>& config, const std::string& title, const std::string& filename) {
+std::vector<std::string> format_config(const std::map<std::string, std::string>& config, const std::vector<std::string>& config_order, const std::string& title, const std::string& filename) {
   std::vector<std::string> config_lines;
 
   int title_width = title.size() + 2;
@@ -268,9 +279,11 @@ std::vector<std::string> format_config(const std::map<std::string, std::string>&
   
   int key_width = 20;
 
-  for (const auto& [key, value] : config) {
+  for (const auto& key : config_order) {
+    std::string value = config.at(key);
     int value_width = 42 - key_width - 3;
     std::ostringstream oss;
+
     oss << std::setw(key_width) << std::left << key << ": " << std::right << std::setw(value_width) << value;
     config_lines.push_back(oss.str());
   }
