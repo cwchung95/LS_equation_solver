@@ -6,7 +6,7 @@ mesh_min    = 0.0
 mesh_max    = 16.0
 
 potential   = V_Gauss
-potential_params = -4.0, 2.0
+potential_params = -31.0, 1.7
 
 mass        = 1.0
 scale       = 1.0

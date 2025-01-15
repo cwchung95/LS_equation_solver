@@ -4,5 +4,6 @@ build/
 bin/*.dat
 obj/*.o
 run/*
+src/.*
 !bin
 !run
