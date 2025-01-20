@@ -40,7 +40,7 @@ if [ $# -ne 0 ] && [ "$1" == "clean" ]; then
     printf "\n\e[01;34m${left_padding}${message}${right_padding}\e[0m\n"
 
     printf "\n"
-    figlet -c -w $(tput cols) -f smslant Lipmann-Schwinger Solver
+    figlet -c -w $(tput cols) -f smslant Lippmann-Schwinger Solver
     printf "\n"
 
     printf "\e[01;34m%*s\e[0m\n" "$term_width" "" | tr " " "="
