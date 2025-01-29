@@ -1,12 +1,13 @@
 #include "potential.h"
 #include "plot.h"
 #include "riccati.h"
+#include "system.h"
 #include <cmath>
 #include <stdexcept>
 #include <functional>
 
 double integrate(std::function<double(double)> func, double a, double b) {
-  int n = 1e8;
+  int n = 1e4;
   double step = (b - a) / n;
   double result = 0.0;
   double x1 = a;
@@ -21,9 +22,10 @@ double integrate(std::function<double(double)> func, double a, double b) {
 
 double LocalPotential::get(int ell, double p, double q) const {
   auto func = [&](double r){
-    return riccati_j(ell, p*r) * (*this)(r) * riccati_j(ell, q*r);
+    double r_MeV = r/197.3;
+    return riccati_j(ell, p*r_MeV) * (*this)(r_MeV) * riccati_j(ell, q*r_MeV);
   };
-  return 4.0 * M_PI / (q * p) * integrate(func, 0.0, 1e6);
+  return 4.0 * M_PI / (q * p) * integrate(func, 0.0, 1e8);
 }
 
 void LocalPotential::show(const std::string& rep, int ell, const std::map<std::string, double>& options) const {

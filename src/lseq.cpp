@@ -23,6 +23,8 @@
 int get_shell_width();
 void print_text_box(const std::vector<std::string>& lines);
 
+std::string realToStringWithSigFigs(double x, int sigFigs); 
+std::string complexToStringWithSigFigs(const std::complex<double>& c, int sigFigs);
 std::vector<std::string> format_config(const std::map<std::string, std::string>& config, const std::vector<std::string>& config_order, const std::string& title, const std::string& filename);
 std::string trim(const std::string& str);
 std::map<std::string, std::string> parse_datacard(const std::string& filename);
@@ -160,8 +162,8 @@ int main(int argc, char* argv[]) {
 
   // Show the potential
   if (flag_debug) {
-    V->show("r", 0, {{"max", 4.0}});
-    V->show("p", 0, {{"max", 4.0}});
+    V->show("r", 0, {{"max", mesh_max}});
+    V->show("p", 0, {{"max", mesh_max}});
   }
 
   // Display configuration
@@ -178,6 +180,7 @@ int main(int argc, char* argv[]) {
   }
 
   // Solve the integral equation
+  /*
   auto solution = solve(sys, *mesh, G0, *V, k);
   if (flag_debug) {
     std::cout << "Solution: " << std::endl;
@@ -185,6 +188,7 @@ int main(int argc, char* argv[]) {
       std::cout << s << "\n";
     }
   }
+  */
 
   // Calculate the T-matrix
   std::complex<double> T = solve_on_shell(sys, *mesh, G0, *V, k);
@@ -194,11 +198,40 @@ int main(int argc, char* argv[]) {
 
   //Calculate the Phase Shift
   double delta = phase_shift_from_T(sys, k, T);
-  std::map <std::string, std::string> result = {{"Phase shift", std::to_string(delta)}};
-  std::vector <std::string> result_order = {"Phase shift"};
+  std::map <std::string, std::string> result = {{"T-matrix", complexToStringWithSigFigs(T, 5)},{"Phase shift", realToStringWithSigFigs(delta, 5)}};
+  std::vector <std::string> result_order = {"T-matrix", "Phase shift"};
   print_text_box(format_config(result, result_order, " RESULT ", datacard_file));
 
   delete mesh;
+}
+
+// Function to convert a real number to a string with a specified number of significant figures
+std::string realToStringWithSigFigs(double x, int sigFigs) {
+    std::ostringstream oss;
+    oss << std::setprecision(sigFigs) << x;
+    return oss.str();
+}
+
+// Function to convert a complex number to a string with a specified number of significant figures
+std::string complexToStringWithSigFigs(const std::complex<double>& c, int sigFigs) {
+    std::ostringstream oss;
+    oss << std::setprecision(sigFigs);
+    
+    if (c.real() >= 0) {
+      oss << "(+";
+    } else {
+      oss << "(-";
+    }
+
+    oss << std::abs(c.real()) << ")+";
+    if (c.imag() >= 0) {
+        oss << "(+";
+    } else {
+        oss << "(-";
+    }
+    oss << std::abs(c.imag()) << ")i";
+    
+    return oss.str();
 }
 
 // Function to trim whitespace from a string
@@ -281,7 +314,7 @@ std::vector<std::string> format_config(const std::map<std::string, std::string>&
 
   for (const auto& key : config_order) {
     std::string value = config.at(key);
-    int value_width = 42 - key_width - 3;
+    int value_width = 55 - key_width - 3;
     std::ostringstream oss;
 
     oss << std::setw(key_width) << std::left << key << ": " << std::right << std::setw(value_width) << value;
@@ -395,6 +428,7 @@ std::vector< std::vector<std::complex<double> > > kernel(const Mesh& mesh, const
       std::complex<double> value = factor * mesh.w(j) * mesh.p(j) * mesh.p(j) 
                                   * (mesh.is_pv(j) ?  G0.residue(mesh.p(j)) : G0(E, mesh.p(j)))
                                   * V.get(0, mesh.p(i), mesh.p(j));
+      // std::cout << "K[" << i << "][" << j << "] = " << value << std::endl;
       row.push_back(value);
     }
     K.push_back(row);
@@ -463,5 +497,6 @@ std::complex<double> solve_on_shell(const System& sys, Mesh& mesh, const G0& G0,
 double phase_shift_from_T(const System& sys, double k, std::complex<double> T) {
   std::complex<double> cot_delta = -2.0 * M_PI / (k * sys.getMu()) * (1.0 / T) + std::complex<double> (0,1);
   double delta = std::atan(1.0 / cot_delta.real());
+  delta = std::atan(T.imag()/T.real());
   return delta * 180.0 / M_PI;
 }

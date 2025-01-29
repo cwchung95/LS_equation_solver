@@ -1,0 +1,14 @@
+# Example Datacard
+
+mesh_scheme      = gauleg
+mesh_points      = 200 
+mesh_min         = 0.0
+mesh_max         = 1500.0
+
+potential        = V_EFT_LO
+potential_params = -18.90, 2.75, 50 
+
+mass             = 938.0
+scale            = 1.0
+                 
+k                = 10 

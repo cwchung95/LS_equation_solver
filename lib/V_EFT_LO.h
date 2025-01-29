@@ -1,40 +1,43 @@
 #ifndef V_EFT_LO_H
 #define V_EFT_LO_H
 
+#include <gsl/gsl_sf_bessel.h>
 #include "potential.h"
 #include "system.h"
 
 class V_EFT_LO : public LocalPotential {
-  public:
-    V_EFT_LO(const System& sys, double a, double mu, double lamd) : LocalPotential(sys, "V_EFT_LO"), a(a), mu(mu), lamd(lamd) {} 
-
+  public: 
+    // Constructor: get the system and the parameters (scattering length, effective range, an arbitrary energy scale) 
+    V_EFT_LO( const System& sys, double a, double r0, double mu ) : LocalPotential( sys, "V_EFT_LO" ), a_MeV( sys.fm_to_MeV_inv(a) ), r0_MeV( sys.fm_to_MeV_inv(r0) ) {} 
+    
+    // Calculate the potential at a given distance r
     double operator()( double r ) const override {
-      double a_MeV = sys.fm_to_MeV_inv(a);
-      // std::cout << a_MeV << std::endl;
-      return 32 * std::pow(M_PI, 2) * a_MeV / ( 1 - 2 * a_MeV * mu / M_PI ) * gaussian(r);
+      double C0 = 4 * M_PI / sys.getMass() * ( 1 / ( -mu + 1/a_MeV ) );
+      return C0 * gaussian(r, r0_MeV);
     }
 
-    double gaussian(double r) const {
-      return std::exp(-r * r / (2 * std::pow(mu, 2)))/(std::pow(2*M_PI, 1.5) * std::pow(mu, 3));
+    // Gaussian function
+    double gaussian( double r, double r0 ) const {
+      return exp(-r*r/(r0*r0)) / (std::pow(2*M_PI, 1.5) * r0 * r0 * r0);
     }
-
-    double get(int ell, double p, double q) const override {
-      return LocalPotential::get(ell, p ,q);
-      if (ell == 0){
+    
+    // Calculate V(p,q) from V(r) using the Lippman-Schwinger equation
+    double get( int ell, double p, double q ) const override {
+      double C0 = 4 * M_PI / sys.getMass() * ( 1 / ( -mu + 1/a_MeV ) );
+      if ( ell == 0 ) {
         double A = p * p + q * q;
         double B = 2 * p * q;
-        return V_EFT_LO::operator()(q) 
-          * std::exp(-0.25 * A * std::pow(mu, 2)) * std::sinh(0.25 * B * std::pow(mu, 2));
+        double ret = C0 * std::exp( - A * r0_MeV * r0_MeV ) * gsl_sf_bessel_i0_scaled( 2 * A * r0_MeV );
+        return ret;
       }
       else {
         return LocalPotential::get(ell, p, q);
       }
     }
-    
+
   private:
-    double a;
-    double mu;
-    double lamd;
-}; 
+    double a_MeV, r0_MeV, mu;
+};
 
 #endif // V_EFT_LO_H
+
