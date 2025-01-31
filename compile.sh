@@ -3,29 +3,51 @@
 exit_code=0
 
 if [ $# -ne 0 ] && [ "$1" == "clean" ]; then
-    message=" Cleaning up the project! " 
-    color_code="01;34m"
-    msg_length=${#message}
+  message=" Cleaning up the project! " 
+  color_code="01;34m"
+  msg_length=${#message}
 
-    term_width=$(tput cols)
+  term_width=$(tput cols)
 
-    padding=$(( (term_width - msg_length) / 2))
+  padding=$(( (term_width - msg_length) / 2))
 
-    if (( (term_width - msg_length) % 2 != 0 )); then
-      padding_right=$((padding + 1))
-    else
-      padding_right=$padding
-    fi
-
-    left_padding=$(printf "%*s" "$padding" "" | tr " " "=")
-    right_padding=$(printf "%*s" "$padding_right" "" | tr " " "=")
-
-    printf "\n\e[${color_code}${left_padding}${message}${right_padding}\e[0m\n"
-    rm -rf run/* bin/* obj/*.o obj/*.d
-    exit 0
+  if (( (term_width - msg_length) % 2 != 0 )); then
+    padding_right=$((padding + 1))
   else
-    term_width=$(tput cols)
-    message=" Compiling Started "
+    padding_right=$padding
+  fi
+
+  left_padding=$(printf "%*s" "$padding" "" | tr " " "=")
+  right_padding=$(printf "%*s" "$padding_right" "" | tr " " "=")
+
+  printf "\n\e[${color_code}${left_padding}${message}${right_padding}\e[0m\n"
+  rm -rf run/* bin/* obj/*.o obj/*.d
+  exit 0
+else
+  term_width=$(tput cols)
+  message=" Compiling Started "
+  msg_length=${#message}
+
+  padding=$(( (term_width - msg_length) / 2))
+  if (( (term_width - msg_length) % 2 != 0 )); then
+    padding_right=$((padding + 1))
+  else
+    padding_right=$padding
+  fi
+  left_padding=$(printf "%*s" "$padding" "" | tr " " "=")
+  right_padding=$(printf "%*s" "$padding_right" "" | tr " " "=")
+
+  printf "\n\e[01;34m${left_padding}${message}${right_padding}\e[0m\n"
+
+  printf "\n"
+  figlet -c -w $(tput cols) -f smslant Lippmann-Schwinger Solver
+  printf "\n"
+
+  printf "\e[01;34m%*s\e[0m\n" "$term_width" "" | tr " " "="
+  printf "\n "
+
+  if ! pkg-config --exists gsl; then
+    message="Error: GSL is not installed. Please install it and try again."
     msg_length=${#message}
 
     padding=$(( (term_width - msg_length) / 2))
@@ -36,51 +58,45 @@ if [ $# -ne 0 ] && [ "$1" == "clean" ]; then
     fi
     left_padding=$(printf "%*s" "$padding" "" | tr " " "=")
     right_padding=$(printf "%*s" "$padding_right" "" | tr " " "=")
+    printf "\n\e[01;31m${left_padding}${message}${right_padding}\e[0m\n"
+    exit 1
+  fi
 
-    printf "\n\e[01;34m${left_padding}${message}${right_padding}\e[0m\n"
+  mkdir build
+  cd build
+  cmake ..
+  make -j $(getconf _NPROCESSORS_ONLN) 
 
-    printf "\n"
-    figlet -c -w $(tput cols) -f smslant Lippmann-Schwinger Solver
-    printf "\n"
-
-    printf "\e[01;34m%*s\e[0m\n" "$term_width" "" | tr " " "="
-    printf "\n "
-
-    mkdir build
-    cd build
-    cmake ..
-    make -j $(getconf _NPROCESSORS_ONLN) 
-    
-    exit_code=$?
+  exit_code=$?
 
 
-    if [[ $exit_code != 0 ]] ; then
-      message=" Compile failed with errors! "
-      color_code="01;31m"
-    else 
-      message=" Compiled successfully without errors! " 
-      color_code="01;32m"
-    fi
-    
-    msg_length=${#message}
+  if [[ $exit_code != 0 ]] ; then
+    message=" Compile failed with errors! "
+    color_code="01;31m"
+  else 
+    message=" Compiled successfully without errors! " 
+    color_code="01;32m"
+  fi
 
-    padding=$(( (term_width - msg_length) / 2))
+  msg_length=${#message}
 
-    if (( (term_width - msg_length) % 2 != 0 )); then
-      padding_right=$((padding + 1))
-    else
-      padding_right=$padding
-    fi
+  padding=$(( (term_width - msg_length) / 2))
 
-    left_padding=$(printf "%*s" "$padding" "" | tr " " "=")
-    right_padding=$(printf "%*s" "$padding_right" "" | tr " " "=")
+  if (( (term_width - msg_length) % 2 != 0 )); then
+    padding_right=$((padding + 1))
+  else
+    padding_right=$padding
+  fi
 
-    printf "\n\e[${color_code}${left_padding}${message}${right_padding}\e[0m\n"
+  left_padding=$(printf "%*s" "$padding" "" | tr " " "=")
+  right_padding=$(printf "%*s" "$padding_right" "" | tr " " "=")
+
+  printf "\n\e[${color_code}${left_padding}${message}${right_padding}\e[0m\n"
 
 
-    cd ..
+  cd ..
 
-    rm -rf build
+  rm -rf build
 fi
 
 exit $exit_code
