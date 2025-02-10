@@ -2,6 +2,7 @@
 
 
 System::System(double mass, double scale) : mass(mass), scale(scale) {
+  //mu = mass / 2.0;
   mu = mass / 2.0;
 }
 

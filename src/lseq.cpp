@@ -150,11 +150,17 @@ int main(int argc, char* argv[]) {
     }
     V = new V_Zero(sys);
   }
-  else if (potential_type == "V_EFT_LO") {
+  else if (potential_type == "V_EFT_LO_unnat") {
     if (potential_params.size() != 3) {
-      throw std::invalid_argument("Error: Invalid number of potential parameters for V_EFT_LO!");
+      throw std::invalid_argument("Error: Invalid number of potential parameters for V_EFT_LO_unnat!");
     }
-    V = new V_EFT_LO(sys, potential_params[0], potential_params[1], potential_params[2]);
+    V = new V_EFT_LO_unnat(sys, potential_params[0], potential_params[1], potential_params[2]);
+  }
+  else if (potential_type == "V_EFT_LO_nat") {
+    if (potential_params.size() != 3) {
+      throw std::invalid_argument("Error: Invalid number of potential parameters for V_EFT_LO_nat!");
+    }
+    V = new V_EFT_LO_nat(sys, potential_params[0], potential_params[1], potential_params[2]);
   }
   else {
     throw std::invalid_argument("Error: Invalid potential type: " + potential_type);
@@ -497,6 +503,6 @@ std::complex<double> solve_on_shell(const System& sys, Mesh& mesh, const G0& G0,
 double phase_shift_from_T(const System& sys, double k, std::complex<double> T) {
   std::complex<double> cot_delta = -2.0 * M_PI / (k * sys.getMu()) * (1.0 / T) + std::complex<double> (0,1);
   double delta = std::atan(1.0 / cot_delta.real());
-  delta = std::atan(T.imag()/T.real());
+  //delta = std::atan(T.imag()/T.real());
   return delta * 180.0 / M_PI;
 }

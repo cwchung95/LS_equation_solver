@@ -20,14 +20,14 @@ class Operators {
 
 class G0 : public Operators {
   public:
-    G0(const System& sys) : Operators(sys), sys(sys), mass(sys.getMass()) {}
+    G0(const System& sys) : Operators(sys), sys(sys), mass(sys.getMass()), mu(sys.getMu()) {}
 
     double operator()(double E, double q) const {
-      return mass / (mass * E - q * q);
+      return 2 * mu / (-2 * mu * E - q * q);
     }
     
     double residue(double q0) const {
-      return -mass / (2 * q0);
+      return -mu / (q0);
     }
 
   private:
