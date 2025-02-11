@@ -20,6 +20,14 @@
 #include "operators.h"
 #include "plot.h"
 
+struct IntegrandParams {
+  System* sys;
+  LocalPotential* V;
+  G0* g0;
+  double k;
+};
+
+std::complex<double> Tmatrix_From_Integral(System& sys, double k, double mesh_min, double mesh_max, LocalPotential& V, G0& g0);
 int get_shell_width();
 void print_text_box(const std::vector<std::string>& lines);
 
@@ -29,13 +37,9 @@ std::vector<std::string> format_config(const std::map<std::string, std::string>&
 std::string trim(const std::string& str);
 std::map<std::string, std::string> parse_datacard(const std::string& filename);
 
-std::vector< std::vector<std::complex<double> > > kernel(const Mesh& mesh, const G0& G0, const Potential& V, double E);
-std::vector< std::vector< std::complex<double> > > construct_I_minus_K(const size_t n, const std::vector< std::vector< std::complex<double> > > K);
-std::vector< std::complex<double> > real_to_complex(const std::vector<double>& real_vec);
-std::vector< std::complex<double> > linear_solve(const std::vector< std::vector< std::complex<double> > >& mat, 
-                                                const std::vector< std::complex<double> >& vec);
-std::vector< std::complex<double> > solve(const System& sys, Mesh& mesh, const G0& G0, const Potential& V, double k);
-std::complex<double> solve_on_shell(const System& sys, Mesh& mesh, const G0& G0, const Potential& V, double k);
+double integrand(double p, void* params);
+double integrand_real(double p, void* params); 
+double integrand_imag(double p, void* params);  
 double phase_shift_from_T(const System& sys, double k, std::complex<double> T);
 
 int main(int argc, char* argv[]) {
@@ -178,38 +182,101 @@ int main(int argc, char* argv[]) {
   // Define the Green's function
   G0 G0(sys);
 
-  // Plot the Green's function
-  std::vector<double> ps = mesh->ps();
-  std::vector<double> G0_values;
-  for (double p : ps) {
-    G0_values.push_back(G0(sys.e_from_k(k), p));
-  }
+  // Calculate the T-matrix
+  std::complex<double> T = Tmatrix_From_Integral(sys, k, mesh_min, mesh_max, *V, G0);
+  std::cout << "T-matrix: " << complexToStringWithSigFigs(T, 4) << std::endl;
 
-  // Solve the integral equation
-  /*
-  auto solution = solve(sys, *mesh, G0, *V, k);
-  if (flag_debug) {
-    std::cout << "Solution: " << std::endl;
-    for (std::complex<double> s : solution) {
-      std::cout << s << "\n";
-    }
-  }
-  */
+  // Calculate the phase shift
+  double delta = phase_shift_from_T(sys, k, T);
+  std::cout << "Phase shift: " << realToStringWithSigFigs(delta, 4) << " degrees" << std::endl;
+
+  return 0;
+}
+
+std::complex<double> Tmatrix_From_Integral(System& sys, double k, double mesh_min, double mesh_max, LocalPotential& V, G0& g0) {
+  // Define integrand
+  IntegrandParams ip;
+  ip.V   = &V;
+  ip.g0  = &g0;
+  ip.sys = &sys;
+  ip.k   = k;
+
+  // Set up the GSL integration workspace
+  const size_t max_subdivisions = 10000;
+  gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(max_subdivisions);
+
+  // Set up the GSL function
+  gsl_function fr, fi;
+  fr.function = integrand_real;
+  fi.function = integrand_imag;
+  fr.params = &ip;
+  fi.params = &ip;
+
+  // Perform the Integration
+  double a(mesh_min), b(mesh_max), eps_abs(1e-6), eps_rel(1e-6);
+
+  double resultRe, errorRe, resultIm, errorIm;
+
+  int key=1;
+
+  int statusRe = gsl_integration_qag(
+    &fr, a, b, 
+    eps_abs, eps_rel, 
+    max_subdivisions, key,
+    workspace, 
+    &resultRe, &errorRe
+  );
+
+  int statusIm = gsl_integration_qag(
+    &fi, a, b, 
+    eps_abs, eps_rel, 
+    max_subdivisions, key,
+    workspace,  
+    &resultIm, &errorIm
+  );
+
+  std::complex<double> result(resultRe, resultIm);
+
+  // print the results with error
+  std::cout << "Real part: " << resultRe << " +/- " << errorRe << std::endl;
+  std::cout << "Imaginary part: " << resultIm << " +/- " << errorIm << std::endl;
+
+  // Free the workspace
+  gsl_integration_workspace_free(workspace);
 
   // Calculate the T-matrix
-  std::complex<double> T = solve_on_shell(sys, *mesh, G0, *V, k);
-  if (flag_debug) {
-    std::cout << "\nT-matrix : " << T << std::endl;
-  }
-
-  //Calculate the Phase Shift
-  double delta = phase_shift_from_T(sys, k, T);
-  std::map <std::string, std::string> result = {{"T-matrix", complexToStringWithSigFigs(T, 5)},{"Phase shift", realToStringWithSigFigs(delta, 5)}};
-  std::vector <std::string> result_order = {"T-matrix", "Phase shift"};
-  print_text_box(format_config(result, result_order, " RESULT ", datacard_file));
-
-  delete mesh;
+  std::complex<double> T = 4 * M_PI / sys.getMass() * 1.0 / (V.get(0, k, k) - result);
+  return T;
 }
+
+double integrand(double p, void* params) {
+  IntegrandParams* ip = static_cast<IntegrandParams*> (params);
+  return (p * p) * ip->V->get(0, ip->k, p) * (*ip->g0)(ip->sys->e_from_k(ip->k) , p)/ (2 * M_PI);
+};
+
+double integrand_imag(double p, void* params) {
+  IntegrandParams* ip = static_cast<IntegrandParams*> (params);
+  double eps = 1e-8;
+  double A = ip->sys->getMu()*ip->sys->e_from_k(ip->k)-p*p;
+  double denom = A*A + eps*eps;
+
+  // Im[G0] = -eps /denom;
+  double G0_imag = - eps / denom;
+
+  return p * p * ip->V->get(0, ip->k, p) * ip->sys->getMu() * G0_imag / (2 * M_PI);
+};
+
+double integrand_real(double p, void* params) { 
+  IntegrandParams* ip = static_cast<IntegrandParams*> (params);
+  double eps = 1e-8;
+  double A = ip->sys->getMu()*ip->sys->e_from_k(ip->k)-p*p;
+  double denom = A*A + eps*eps;
+
+  // Re[G0] = A /denom;
+  double G0_real = A / denom;
+
+  return p * p * ip->V->get(0, ip->k, p) * ip->sys->getMu() * G0_real / (2 * M_PI);
+};
 
 // Function to convert a real number to a string with a specified number of significant figures
 std::string realToStringWithSigFigs(double x, int sigFigs) {
@@ -372,131 +439,6 @@ std::vector< std::complex<double> > real_to_complex(const std::vector<double>& r
     complex_vec.push_back(std::complex<double>(x, 0.0));
   }
   return complex_vec;
-}
-
-std::vector< std::complex<double> > linear_solve(const std::vector< std::vector< std::complex<double> > >& mat, 
-                                                const std::vector< std::complex<double> >& vec) {
-  size_t n = mat.size();
-
-  // Check if the matrix is square and match with the vector size
-  if (n == 0 || mat[0].size() != n || vec.size() != n) {
-    throw std::invalid_argument("Matrix and vector sizes do not match!");
-  }
-
-  // Allocate memory for the GSL matrix and vector
-  gsl_matrix_complex* gsl_mat = gsl_matrix_complex_alloc(n, n);
-  gsl_vector_complex* gsl_vec = gsl_vector_complex_alloc(n);
-  gsl_vector_complex* gsl_sol = gsl_vector_complex_alloc(n);
-  gsl_permutation* perm = gsl_permutation_alloc(n);
-  int signum;
-
-  // Copy the matrix and vector to the GSL structures
-  for (size_t i = 0; i < n; i++) {
-    for (size_t j = 0; j < n; j++) {
-      gsl_complex z = gsl_complex_rect(mat[i][j].real(), mat[i][j].imag());
-      gsl_matrix_complex_set(gsl_mat, i, j, z);
-    }
-  }
-
-  for (size_t i = 0; i < n; i++) {
-    gsl_complex z = gsl_complex_rect(vec[i].real(), vec[i].imag());
-    gsl_vector_complex_set(gsl_vec, i, z);
-  }
-
-  // Solve the linear system
-  gsl_linalg_complex_LU_decomp(gsl_mat, perm, &signum);
-  gsl_linalg_complex_LU_solve(gsl_mat, perm, gsl_vec, gsl_sol);
-
-  // Extract the solution
-  std::vector< std::complex<double> > sol(n);
-  for (size_t i = 0; i < n; i++) {
-    gsl_complex z = gsl_vector_complex_get(gsl_sol, i);
-    sol[i] = std::complex<double>(GSL_REAL(z), GSL_IMAG(z));
-  }
-
-  // Free the memory
-  gsl_matrix_complex_free(gsl_mat);
-  gsl_vector_complex_free(gsl_vec);
-  gsl_vector_complex_free(gsl_sol);
-  gsl_permutation_free(perm);
-
-  return sol;
-}
-
-// Kernel Matrix
-std::vector< std::vector<std::complex<double> > > kernel(const Mesh& mesh, const G0& G0, const Potential& V, double E) {
-  double factor = 0.5 / (M_PI * M_PI);
-  std::vector< std::vector<std::complex<double> > > K;
-
-  for (size_t i=0; i < mesh.size(); i++ ) {
-    std::vector<std::complex<double> > row;
-    for (size_t j=0; j < mesh.size(); j++) {
-      std::complex<double> value = factor * mesh.w(j) * mesh.p(j) * mesh.p(j) 
-                                  * (mesh.is_pv(j) ?  G0.residue(mesh.p(j)) : G0(E, mesh.p(j)))
-                                  * V.get(0, mesh.p(i), mesh.p(j));
-      // std::cout << "K[" << i << "][" << j << "] = " << value << std::endl;
-      row.push_back(value);
-    }
-    K.push_back(row);
-  }
-
-  return K;
-}
-
-// Generate the T-matrix from K-matrix
-std::vector< std::vector< std::complex<double> > > construct_I_minus_K(const size_t n, const std::vector< std::vector< std::complex<double> > > K) {
-  std::vector< std::vector< std::complex<double> > > I_minus_K(n, std::vector< std::complex<double> >(n, 0.0));
-  for (size_t i = 0; i < n; ++i) {
-    for(size_t j = 0; j < n; ++j) {
-      if(i==j) {
-        I_minus_K[i][j] = 1.0 - K[i][j];
-      } else {
-        I_minus_K[i][j] = -K[i][j];
-      }
-    }
-  }
-  return I_minus_K;
-}
-
-// Solve the integral equation
-std::vector< std::complex<double> > solve(const System& sys, Mesh& mesh, const G0& G0, const Potential& V, double k) {
-  mesh.push_pv(k); 
-
-  double E = sys.e_from_k(k);
-  auto K = kernel(mesh, G0, V, E);
-  std::vector<double> vec;
-
-  size_t n = mesh.size();
-  auto I_minus_K = construct_I_minus_K(n, K);
-
-  for(double p : mesh.ps()) {
-    vec.push_back(V.get(0, k, p));
-  }
-  std::vector< std::complex<double> > solution = linear_solve(I_minus_K, real_to_complex(vec));
-
-  mesh.pop_pv();
-  return solution;
-}
-
-// Solve on-shell
-std::complex<double> solve_on_shell(const System& sys, Mesh& mesh, const G0& G0, const Potential& V, double k){
-  int i0 = mesh.push_pv(k);
-
-  double E = sys.e_from_k(k);
-  auto K = kernel(mesh, G0, V, E);
-  std::vector<double> vec;
-
-  size_t n = mesh.size();
-  auto I_minus_K = construct_I_minus_K(n, K);
-
-  for (double p : mesh.ps()) {
-    vec.push_back(V.get(0, k, p));
-  }
-
-  std::vector< std::complex<double> > solution = linear_solve(I_minus_K, real_to_complex(vec));
-
-  mesh.pop_pv();
-  return solution[i0];
 }
 
 // Get the phase shift
