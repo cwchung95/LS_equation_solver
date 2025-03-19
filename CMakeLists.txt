@@ -43,9 +43,13 @@ endforeach()
 list(REMOVE_ITEM SOURCES ${LIB_SOURCES})
 
 # Generate executables from non-library source files
+# Modify the executable generation loop
 foreach(source ${SOURCES})
-  get_filename_component(exec_name ${source} NAME_WE)
-  add_executable(${exec_name} ${source} ${LIB_SOURCES})
-  set_target_properties(${exec_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${RUN_DIR})
+    get_filename_component(exec_name ${source} NAME_WE)
+    add_executable(${exec_name} ${source} ${LIB_SOURCES})
+    set_target_properties(${exec_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${RUN_DIR})
+    if(${exec_name} STREQUAL "lseq_int_root")
+        target_root_flags(${exec_name})
+    endif()
 endforeach()
 

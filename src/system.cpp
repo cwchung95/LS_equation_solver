@@ -7,11 +7,11 @@ System::System(double mass, double scale) : mass(mass), scale(scale) {
 }
 
 double System::e_from_k(double k) const {
-  return 0.5 * k * k / mu;
+  return k * k / mu;
 }
 
 double System::k_from_e(double e) const {
-  return std::sqrt(2.0 * mu * e);
+  return std::sqrt(mu * e);
 }
 
 std::string System::repr() const {

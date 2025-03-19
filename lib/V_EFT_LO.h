@@ -23,8 +23,8 @@ class V_EFT_LO_unnat : public LocalPotential {
     
     // Calculate V(p,q) from V(r) using the Lippman-Schwinger equation
     double get( int ell, double p, double q ) const override {
-      double C0 = 4 * M_PI / sys.getMass() * ( 1 / ( -mu + 1/a_MeV ) );
-      //return C0;
+      double C0 = 4 * M_PI / sys.getMass() * ( 1 / ( - mu + 1/a_MeV ) );
+      return C0;
       if ( ell == 0 ) {
         double A = p * p + q * q;
         double B = 2 * p * q;

@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <sstream>
 #include <iomanip>
+#include <fstream>
 #include <gsl/gsl_linalg.h>
 #include <gsl/gsl_complex.h>
 #include <gsl/gsl_complex_math.h>
@@ -36,10 +37,9 @@ std::string complexToStringWithSigFigs(const std::complex<double>& c, int sigFig
 std::vector<std::string> format_config(const std::map<std::string, std::string>& config, const std::vector<std::string>& config_order, const std::string& title, const std::string& filename);
 std::string trim(const std::string& str);
 std::map<std::string, std::string> parse_datacard(const std::string& filename);
-
 double integrand(double p, void* params);
-double integrand_real(double p, void* params); 
-double integrand_imag(double p, void* params);  
+double integrand_real(double p, void* params);
+double integrand_imag(double p, void* params);
 double phase_shift_from_T(const System& sys, double k, std::complex<double> T);
 
 int main(int argc, char* argv[]) {
@@ -186,160 +186,67 @@ int main(int argc, char* argv[]) {
   std::complex<double> T = Tmatrix_From_Integral(sys, k, mesh_min, mesh_max, *V, G0);
   std::cout << "T-matrix: " << complexToStringWithSigFigs(T, 4) << std::endl;
 
+  std::complex<double> invT = 1.0 / T;
+  std::cout << "Inverse T-matrix: " << complexToStringWithSigFigs(invT, 4) << std::endl;
+
   // Calculate the phase shift
   double delta = phase_shift_from_T(sys, k, T);
   std::cout << "Phase shift: " << realToStringWithSigFigs(delta, 4) << " degrees" << std::endl;
 
   return 0;
 }
-
 std::complex<double> Tmatrix_From_Integral(System& sys, double k, double mesh_min, double mesh_max, LocalPotential& V, G0& g0) {
-  // Define integrand
   IntegrandParams ip;
   ip.V   = &V;
   ip.g0  = &g0;
   ip.sys = &sys;
   ip.k   = k;
-
-  // Set up the GSL integration workspace
-  const size_t max_subdivisions = 10000;
+  const size_t max_subdivisions = 1e+3;
   gsl_integration_workspace* workspace = gsl_integration_workspace_alloc(max_subdivisions);
 
-  // Set up the GSL function
   gsl_function fr, fi;
   fr.function = integrand_real;
   fi.function = integrand_imag;
   fr.params = &ip;
   fi.params = &ip;
 
-  // Perform the Integration
   double a(mesh_min), b(mesh_max), eps_abs(1e-6), eps_rel(1e-6);
 
   double resultRe, errorRe, resultIm, errorIm;
 
   int key=1;
+  double pole = std::sqrt(sys.getMu() * sys.e_from_k(k));
+  double a_img = pole - 1e-8;
+  double b_img = pole + 1e-8;
 
-  int statusRe = gsl_integration_qag(
-    &fr, a, b, 
+  int statusRe = gsl_integration_qagiu(
+    //&fr, a, b, 
+    &fr, 0,
     eps_abs, eps_rel, 
-    max_subdivisions, key,
+    //max_subdivisions, key,
+    max_subdivisions,
     workspace, 
     &resultRe, &errorRe
   );
 
   int statusIm = gsl_integration_qag(
-    &fi, a, b, 
+    &fi, a_img, b_img, 
     eps_abs, eps_rel, 
     max_subdivisions, key,
     workspace,  
     &resultIm, &errorIm
   );
+  resultIm = pole * ip.V->get(0, k, pole) * ip.sys->getMu() / 4 ;
 
   std::complex<double> result(resultRe, resultIm);
 
-  // print the results with error
   std::cout << "Real part: " << resultRe << " +/- " << errorRe << std::endl;
   std::cout << "Imaginary part: " << resultIm << " +/- " << errorIm << std::endl;
 
-  // Free the workspace
   gsl_integration_workspace_free(workspace);
 
-  // Calculate the T-matrix
-  std::complex<double> T = 4 * M_PI / sys.getMass() * 1.0 / (V.get(0, k, k) - result);
+  std::complex<double> T = 4 * M_PI / sys.getMass() * V.get(0,k,k) / ( 1.0 - V.get(0,k,k) * result );
   return T;
-}
-
-double integrand(double p, void* params) {
-  IntegrandParams* ip = static_cast<IntegrandParams*> (params);
-  return (p * p) * ip->V->get(0, ip->k, p) * (*ip->g0)(ip->sys->e_from_k(ip->k) , p)/ (2 * M_PI);
-};
-
-double integrand_imag(double p, void* params) {
-  IntegrandParams* ip = static_cast<IntegrandParams*> (params);
-  double eps = 1e-8;
-  double A = ip->sys->getMu()*ip->sys->e_from_k(ip->k)-p*p;
-  double denom = A*A + eps*eps;
-
-  // Im[G0] = -eps /denom;
-  double G0_imag = - eps / denom;
-
-  return p * p * ip->V->get(0, ip->k, p) * ip->sys->getMu() * G0_imag / (2 * M_PI);
-};
-
-double integrand_real(double p, void* params) { 
-  IntegrandParams* ip = static_cast<IntegrandParams*> (params);
-  double eps = 1e-8;
-  double A = ip->sys->getMu()*ip->sys->e_from_k(ip->k)-p*p;
-  double denom = A*A + eps*eps;
-
-  // Re[G0] = A /denom;
-  double G0_real = A / denom;
-
-  return p * p * ip->V->get(0, ip->k, p) * ip->sys->getMu() * G0_real / (2 * M_PI);
-};
-
-// Function to convert a real number to a string with a specified number of significant figures
-std::string realToStringWithSigFigs(double x, int sigFigs) {
-    std::ostringstream oss;
-    oss << std::setprecision(sigFigs) << x;
-    return oss.str();
-}
-
-// Function to convert a complex number to a string with a specified number of significant figures
-std::string complexToStringWithSigFigs(const std::complex<double>& c, int sigFigs) {
-    std::ostringstream oss;
-    oss << std::setprecision(sigFigs);
-    
-    if (c.real() >= 0) {
-      oss << "(+";
-    } else {
-      oss << "(-";
-    }
-
-    oss << std::abs(c.real()) << ")+";
-    if (c.imag() >= 0) {
-        oss << "(+";
-    } else {
-        oss << "(-";
-    }
-    oss << std::abs(c.imag()) << ")i";
-    
-    return oss.str();
-}
-
-// Function to trim whitespace from a string
-std::string trim(const std::string& str) {
-  size_t first = str.find_first_not_of(" \t");
-  size_t last = str.find_last_not_of(" \t");
-  return (first == std::string::npos) ? "" : str.substr(first, (last - first + 1));
-}
-
-// Function to get the shell width
-int get_shell_width() {
-  FILE* pipe = popen("tput cols", "r");
-  if (!pipe) {
-    std::cerr << "Warning: Unable to get the shell width!" << std::endl;
-    return 80;
-  }
-
-  char buffer[128];
-  if (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
-    pclose(pipe);
-    try {
-      int width = std::stoi(buffer);
-      if (width > 0) {
-        return width;
-      }
-    }
-    catch (const std::exception& e) {
-      std::cerr << "Error: Invalid output from tput cols: " << buffer << std::endl;
-    }
-  } 
-  else {
-    pclose(pipe);
-  }
-
-  return 80;
 }
 
 // Function to print a dynamic text box
@@ -432,7 +339,6 @@ std::map<std::string, std::string> parse_datacard(const std::string& filename) {
   return config;
 }
 
-
 std::vector< std::complex<double> > real_to_complex(const std::vector<double>& real_vec) {
   std::vector< std::complex<double> > complex_vec;
   for (double x : real_vec) {
@@ -441,10 +347,101 @@ std::vector< std::complex<double> > real_to_complex(const std::vector<double>& r
   return complex_vec;
 }
 
-// Get the phase shift
 double phase_shift_from_T(const System& sys, double k, std::complex<double> T) {
   std::complex<double> cot_delta = -2.0 * M_PI / (k * sys.getMu()) * (1.0 / T) + std::complex<double> (0,1);
   double delta = std::atan(1.0 / cot_delta.real());
-  //delta = std::atan(T.imag()/T.real());
   return delta * 180.0 / M_PI;
 }
+
+double integrand(double p, void* params) {
+  IntegrandParams* ip = static_cast<IntegrandParams*> (params);
+  return (p * p) * ip->V->get(0, ip->k, p) * (*ip->g0)(ip->sys->e_from_k(ip->k) , p)/ (2 * M_PI);
+}
+
+double integrand_imag(double p, void* params) {
+  IntegrandParams* ip = static_cast<IntegrandParams*> (params);
+  double eps = 1e-8;
+  double A = ip->sys->getMu()*ip->sys->e_from_k(ip->k)-p*p;
+  double denom = A*A + eps*eps;
+
+  double G0_imag = - eps / denom;
+
+  return p * p * ip->V->get(0, ip->k, p) * ip->sys->getMu() * G0_imag / (2 * M_PI);
+}
+
+double integrand_real(double p, void* params) { 
+  IntegrandParams* ip = static_cast<IntegrandParams*> (params);
+  double eps = 1e-8;
+  double A = ip->sys->getMu()*ip->sys->e_from_k(ip->k)-p*p;
+  double denom = A*A + eps*eps;
+
+  // Re[G0] = A /denom;
+  double G0_real = A / denom;
+
+  return p * p * ip->V->get(0, ip->k, p) * ip->sys->getMu() * G0_real / (2 * M_PI);
+};
+
+// Function to convert a real number to a string with a specified number of significant figures
+std::string realToStringWithSigFigs(double x, int sigFigs) {
+    std::ostringstream oss;
+    oss << std::setprecision(sigFigs) << x;
+    return oss.str();
+}
+
+// Function to convert a complex number to a string with a specified number of significant figures
+std::string complexToStringWithSigFigs(const std::complex<double>& c, int sigFigs) {
+    std::ostringstream oss;
+    oss << std::setprecision(sigFigs);
+    
+    if (c.real() >= 0) {
+      oss << "(+";
+    } else {
+      oss << "(-";
+    }
+
+    oss << std::abs(c.real()) << ")+";
+    if (c.imag() >= 0) {
+        oss << "(+";
+    } else {
+        oss << "(-";
+    }
+    oss << std::abs(c.imag()) << ")i";
+    
+    return oss.str();
+}
+
+// Function to trim whitespace from a string
+std::string trim(const std::string& str) {
+  size_t first = str.find_first_not_of(" \t");
+  size_t last = str.find_last_not_of(" \t");
+  return (first == std::string::npos) ? "" : str.substr(first, (last - first + 1));
+}
+
+// Function to get the shell width
+int get_shell_width() {
+  FILE* pipe = popen("tput cols", "r");
+  if (!pipe) {
+    std::cerr << "Warning: Unable to get the shell width!" << std::endl;
+    return 80;
+  }
+
+  char buffer[128];
+  if (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+    pclose(pipe);
+    try {
+      int width = std::stoi(buffer);
+      if (width > 0) {
+        return width;
+      }
+    }
+    catch (const std::exception& e) {
+      std::cerr << "Error: Invalid output from tput cols: " << buffer << std::endl;
+    }
+  } 
+  else {
+    pclose(pipe);
+  }
+
+  return 80;
+}
+
