@@ -25,6 +25,10 @@ execute_process(COMMAND gsl-config --libs OUTPUT_VARIABLE GSL_LIBS OUTPUT_STRIP_
 add_compile_options(${GSL_CFLAGS})
 link_libraries(${GSL_LIBS})
 
+# Find ROOT package
+find_package(ROOT REQUIRED)
+include(${ROOT_USE_FILE})
+
 # Add warnings and errors
 # add_compile_options(-Wall -Wextra -Wpedantic )
 
@@ -48,8 +52,6 @@ foreach(source ${SOURCES})
     get_filename_component(exec_name ${source} NAME_WE)
     add_executable(${exec_name} ${source} ${LIB_SOURCES})
     set_target_properties(${exec_name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${RUN_DIR})
-    if(${exec_name} STREQUAL "lseq_int_root")
-        target_root_flags(${exec_name})
-    endif()
+    target_link_libraries(${exec_name} ${ROOT_LIBRARIES})
 endforeach()
 
